@@ -21,48 +21,51 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 
-//using namespace boost;
-
-/* This example creates a subclass of Node and uses std::bind() to register a
- * member function as a callback from the timer. */
-
 class WemosPublisher : public rclcpp::Node
-{    
+{
+public:
+    WemosPublisher()
+        : Node("wemos_publisher"), io_(), port_(io_)
+    {
+        publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
+        port_.open("/dev/ttyUSB0");
+        port_.set_option(boost::asio::serial_port_base::baud_rate(9600));
+
+        read_data();
+        boost::thread t(boost::bind(&boost::asio::io_service::run, &io_));
+    }
+
+private:
+    void handler(const boost::system::error_code &error, size_t bytes_transferred)
+    {
+        buf_[bytes_transferred] = 0;
+        auto message = std_msgs::msg::String();
+        std::string str(buf_);
+        size_t pos = str.rfind("\r\n");
+        if (pos != std::string::npos) {
+            str.replace(pos, 2, ""); // Replace 2 characters with an empty string
+        }
+        message.data = str;
+        RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
+        publisher_->publish(message);
+
+        read_data();
+    }
+
+    void read_data()
+    {
+        port_.async_read_some(boost::asio::buffer(buf_, 512),
+                              boost::bind(&WemosPublisher::handler,
+                                          this,
+                                          boost::asio::placeholders::error,
+                                          boost::asio::placeholders::bytes_transferred));
+    }
+
     boost::asio::io_service io_;
     boost::asio::serial_port port_;
 
-public:
-  WemosPublisher()
-  : Node("wemos_publisher"), io_(),port_(io_) 
-  {
-    publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
-    port_.open("/dev/ttyUSB0");
-    port_.set_option(boost::asio::serial_port_base::baud_rate(9600));
-
-    read_data();
-    boost::thread t(boost::bind(&boost::asio::io_service::run, &io_));
-  }
-
-private:
-  
-  void handler(const boost::system::error_code &error, size_t bytes_transferred)
-  {
-      buf_[bytes_transferred] = 0;
-      std::cout << bytes_transferred << " bytes: " << buf_ << std::endl;
-      read_data();
-  }
-
-  void read_data()
-  {
-      port_.async_read_some(boost::asio::buffer(buf_, 512),
-                             boost::bind(&WemosPublisher::handler,
-                                         this,
-                                         boost::asio::placeholders::error,
-                                         boost::asio::placeholders::bytes_transferred));
-  }
-
-  char buf_[512];
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+    char buf_[512];
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
 };
 
 int main(int argc, char * argv[])
