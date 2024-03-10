@@ -10,13 +10,18 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
-
+find_package(Boost REQUIRED COMPONENTS thread)
 
 add_executable(pubsub_example src/pubsub_example.cpp)
 ament_target_dependencies(pubsub_example rclcpp std_msgs sensor_msgs) 
 
+add_executable(pubsub_wemos src/pubsub_wemos.cpp)
+target_link_libraries(pubsub_wemos ${Boost_LIBRARIES})
+ament_target_dependencies(pubsub_wemos rclcpp std_msgs sensor_msgs) 
+
 install(TARGETS
   pubsub_example
+  pubsub_wemos
   DESTINATION lib/${PROJECT_NAME})
   
 
