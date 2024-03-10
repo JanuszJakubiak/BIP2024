@@ -17,17 +17,22 @@
 #include <boost/asio/serial_port.hpp>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
+#include <regex>
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "sensor_msgs/msg/temperature.hpp"
+#include "sensor_msgs/msg/relative_humidity.hpp"
 
 class WemosPublisher : public rclcpp::Node
 {
 public:
     WemosPublisher()
-        : Node("wemos_publisher"), io_(), port_(io_)
+        : Node("wemos_publisher"), io_(), port_(io_),pattern_("H:(\\d+\\.\\d+);T:(\\d+\\.\\d+)")
     {
         publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
+        publisherT_ = this->create_publisher<sensor_msgs::msg::Temperature>("temperature", 10);
+        publisherH_ = this->create_publisher<sensor_msgs::msg::RelativeHumidity>("humidity", 10);
         port_.open("/dev/ttyUSB0");
         port_.set_option(boost::asio::serial_port_base::baud_rate(9600));
 
@@ -41,6 +46,25 @@ private:
         buf_[bytes_transferred] = 0;
         auto message = std_msgs::msg::String();
         std::string str(buf_);
+
+        std::smatch match;
+        if (std::regex_search(str, match, pattern_))
+        {
+            // Extract the matched values
+            double hValue = std::stod(match[1].str());
+            double tValue = std::stod(match[2].str());
+            auto relative_humidity_msg = sensor_msgs::msg::RelativeHumidity();
+            relative_humidity_msg.header.stamp = this->now();       // Set the timestamp
+            relative_humidity_msg.header.frame_id = "sensor_frame"; // Set the frame ID
+            relative_humidity_msg.relative_humidity = hValue;       // Set the value
+            publisherH_->publish(relative_humidity_msg);            // and publish
+            auto temperature_msg = sensor_msgs::msg::Temperature();
+            temperature_msg.header.stamp = this->now();       // Set the timestamp
+            temperature_msg.header.frame_id = "sensor_frame"; // Set the frame ID
+            temperature_msg.temperature = tValue;             // Set the value
+            publisherT_->publish(temperature_msg);            // and publish
+        }
+
         size_t pos = str.rfind("\r\n");
         if (pos != std::string::npos) {
             str.replace(pos, 2, ""); // Replace 2 characters with an empty string
@@ -65,7 +89,10 @@ private:
     boost::asio::serial_port port_;
 
     char buf_[512];
+    std::regex pattern_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+    rclcpp::Publisher<sensor_msgs::msg::Temperature>::SharedPtr publisherT_;
+    rclcpp::Publisher<sensor_msgs::msg::RelativeHumidity>::SharedPtr publisherH_;
 };
 
 int main(int argc, char * argv[])
