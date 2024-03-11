@@ -19,9 +19,14 @@ add_executable(pubsub_wemos src/pubsub_wemos.cpp)
 target_link_libraries(pubsub_wemos ${Boost_LIBRARIES})
 ament_target_dependencies(pubsub_wemos rclcpp std_msgs sensor_msgs) 
 
+add_executable(strsub_wemos src/wemos_strsub.cpp)
+target_link_libraries(strsub_wemos ${Boost_LIBRARIES})
+ament_target_dependencies(strsub_wemos rclcpp std_msgs sensor_msgs)
+
 install(TARGETS
   pubsub_example
   pubsub_wemos
+  strsub_wemos
   DESTINATION lib/${PROJECT_NAME})
   
 
