@@ -28,12 +28,14 @@ class WemosPublisher : public rclcpp::Node
 {
 public:
     WemosPublisher()
-        : Node("wemos_publisher"), io_(), port_(io_),pattern_("H:(\\d+\\.\\d+);T:(\\d+\\.\\d+)")
+        : Node("wemos_publisher"), io_(), port_(io_), pattern_("H:(\\d+\\.\\d+);T:(\\d+\\.\\d+)")
     {
+        this->declare_parameter<std::string>("port", "/dev/ttyUSB0");
+        std::string port_name = this->get_parameter("port").as_string();
         publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
         publisherT_ = this->create_publisher<sensor_msgs::msg::Temperature>("temperature", 10);
         publisherH_ = this->create_publisher<sensor_msgs::msg::RelativeHumidity>("humidity", 10);
-        port_.open("/dev/ttyUSB0");
+        port_.open(port_name);
         port_.set_option(boost::asio::serial_port_base::baud_rate(9600));
 
         read_data();
@@ -66,7 +68,8 @@ private:
         }
 
         size_t pos = str.rfind("\r\n");
-        if (pos != std::string::npos) {
+        if (pos != std::string::npos)
+        {
             str.replace(pos, 2, ""); // Replace 2 characters with an empty string
         }
         message.data = str;
@@ -95,10 +98,12 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::RelativeHumidity>::SharedPtr publisherH_;
 };
 
-int main(int argc, char * argv[])
+int main(int argc, char *argv[])
 {
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<WemosPublisher>());
-  rclcpp::shutdown();
-  return 0;
+    rclcpp::init(argc, argv);
+    rclcpp::NodeOptions options;
+    options.append_parameter_override("port", "/dev/ttyUSB0");
+    rclcpp::spin(std::make_shared<WemosPublisher>());
+    rclcpp::shutdown();
+    return 0;
 }

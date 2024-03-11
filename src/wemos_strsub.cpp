@@ -27,9 +27,11 @@ public:
   WemosSubscriber()
   : Node("str_subscriber"), io_(), port_(io_)
   {
+    this->declare_parameter<std::string>("port", "/dev/ttyUSB0");
+    std::string port_name = this->get_parameter("port").as_string();
     subscription_ = this->create_subscription<std_msgs::msg::String>(
       "topic", 10, std::bind(&WemosSubscriber::topic_callback, this, _1));
-    port_.open("/dev/ttyUSB0");
+    port_.open(port_name);
     port_.set_option(boost::asio::serial_port_base::baud_rate(9600));
   }
 
@@ -53,6 +55,8 @@ private:
 int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
+  rclcpp::NodeOptions options;
+  options.append_parameter_override("port", "/dev/ttyUSB0");
   rclcpp::spin(std::make_shared<WemosSubscriber>());
   rclcpp::shutdown();
   return 0;
